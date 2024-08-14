@@ -1,0 +1,205 @@
+\documentclass[12pt]{article}
+
+\usepackage{sbc-template}
+\usepackage{graphicx,url}
+\usepackage{algorithm}
+\usepackage{algpseudocode} 
+\usepackage[utf8]{inputenc}  
+
+     
+\sloppy
+
+\title{Relatório da Implementação de Projeto e Análise de Algoritmos}
+
+\author{Camila Lopes\inst{1}, Victor Colen\inst{1} }
+
+
+\address{Instituto de CIências Exatas e Informática \\ Pontifícia Universidade Catórila de Minas Gerais (PUC-MG)\\
+  30535-901 -- Coração Eucarístico -- Belo Horizonte – MG
+  \email{\{lopes.camila, victor.costa\}@sga.pucminas.br}
+}
+
+\begin{document} 
+
+\maketitle
+
+\section{Introdução}
+
+Este relatório explora e implementa duas classes para a manipulação de grafos direcionados, e outra para grafos não-direcionados. O grafo direcionado foi implementado a partir de  uma lista de adjacência, e assim  realizada uma busca em profundidade, rotulando a aresta "de árvore", "de retorno", "de avanço" e "de cruzamento". Já o grafo não-direcionado, foi implementado a partir da matriz de adjacência e, desse modo, realizado uma busca em largura encontrando a excentricidade de um determinado vértice.
+
+\section{Implementação}
+
+\subsection{Grafo Direcionado}
+
+A lista de adjacência é uma estrutura de dados eficiente em termos de memória, especialemente para representar grafos esparsos, permitindo uma fácil representação e iteração sobre os vértices conectados.
+
+\subsubsection{Estrutura de Dados}
+No grafo direcionado é necessário observar que para cada vértice na lista de adjacência é associado a uma lista de vértices adjacentes.
+
+\begin{algorithm}
+    \caption{Estrutura de Dados}
+    \label{alg:estruturaDeDados_GD}
+    \begin{algorithmic}
+        \State $numVertices =$ O número de vértices do grafo 
+        \State $adjacencyList =$ Lista de adjacência
+    \end{algorithmic}
+\end{algorithm}
+
+\subsubsection{Métodos Principais}
+
+Foram classificados dois métodos importantes, sendo eles o método de \textit{Adição de Aresta} e o método de \textit{Busca em Profundidade}.
+
+\begin{algorithm}
+    \caption{Adicionar Aresta}
+    \label{alg:adicionarAresta_GD}
+    \begin{algorithmic}
+        \Require Um vértice de origem $sourceVertex$ e de destino $destinationVertex$
+        \State Adiciona $destinationVertex$ à lista de adjacência de $sourceVertex$
+    \end{algorithmic}
+\end{algorithm}
+
+\begin{algorithm}
+    \caption{Busca em Profundidade (DFS)}
+    \label{alg:DFS}
+    \begin{algorithmic}
+        \Require Um grafo com $numVertices$ vértices
+        
+        \State Inicializa um vetor $visited$ de tamanho $numVertices$ com \textbf{falso}, indicando que nenhum vértice foi visitado
+        \State Inicializa um vetor $discoveryTime$ de tamanho $numVertices$ com $-1$, indicando o tempo de descoberta dos vértices
+        \State Inicializa um vetor $lowTime$ de tamanho $numVertices$ com $-1$, indicando o menor tempo acessível de cada vértice
+        \State Inicializa um vetor $parent$ de tamanho $numVertices$ com $-1$, indicando o pai de cada vértice na árvore DFS
+        \State Define uma variável $time$ como $0$ para rastrear o tempo de descoberta
+
+        \For{cada $vertex$ de $0$ a $numVertices-1$}
+            \If{$vertex$ não foi visitado}
+                \State Classificar a aresta como "Árvore".
+                \State Continuar a DFS recursivamente.
+            \Else
+                \State Classificar a aresta como "Retorno", "Avanço" ou "Cruzamento" com base nas condições de tempo de descoberta.
+            \EndIf
+        \EndFor
+    \end{algorithmic}
+\end{algorithm}
+
+
+\subsection{Grafo Não-Direcionado}
+
+A matriz de adjacência é uma estrutura de dados útil para a verificação rápida de conexões entre quaisquer dois vértices, se destancando pela sua simplicidade de acesso e modificação, ainda que apresente um custo maior em termos de armazenamento, especialmente em grafos de alta densidade.
+
+\subsubsection{Estrutura de Dados}
+No grafo não direcionado temos a matriz da adjacência, a qual cada célula indica a presença ou ausência de uma aresta entre dois vértices.
+
+\begin{algorithm}
+    \caption{Estrutura de Dados}
+    \label{alg:estruturaDeDados_GND}
+    \begin{algorithmic}
+        \State $numVertices =$ O número de vértices do grafo 
+        \State $adjacencyMatrix =$ Matriz de Adjacência
+    \end{algorithmic}
+\end{algorithm}
+
+\newpage
+
+\subsubsection{Métodos Principais}
+Foram classificados dois métodos importantes, sendo eles o método de \textit{Adição de Aresta} e o método de \textit{Busca em Largura e Cálculo de Excentricidade}.
+
+\begin{algorithm}
+    \caption{Adicionar Aresta}
+    \label{alg:adicionarAresta_GND}
+    \begin{algorithmic}
+        \Require Dois vértices $vertex1$ e $vertex2$
+        \State Defina $adjacencyMatrix[vertex1][vertex2] \gets 1$
+        \State Defina $adjacencyMatrix[vertex2][vertex1] \gets 1$
+    \end{algorithmic}
+\end{algorithm}
+
+\begin{algorithm}
+    \caption{Busca em Largura (BFS) e Cálculo da Excentricidade}
+    \label{alg:BFS_calculoDaExcentricidade}
+    \begin{algorithmic}
+        \Require Um vértice inicial $startVertex$
+        
+        \State Inicializa o vetor $distance$ de tamanho $numVertices$, com os valores iguais a $+\infty$
+        \State Inicialize uma fila $bfsQueue$
+        
+        \State Defina o vértice inicial $distance[startVertex] \gets 0$
+        \State Adicione $startVertex$ à fila $bfsQueue$
+        
+        \While{$bfsQueue$ não estiver vazia}
+            \State Retira o vértice da frente da fila e explora seus vizinhos
+            
+            \For{$i = 0$ \textbf{até} $numVertices - 1$}
+                \If{$adjacencyMatrix[currentVertex][i]$ \textbf{e} $distance[i] = +\infty$}
+                    \State tualiza a distância e adiciona o vizinho à fila
+                \EndIf
+            \EndFor
+        \EndWhile
+        
+        \State Inicialize $excentricity \gets 0$
+        \For{$i = 0$ \textbf{até} $numVertices - 1$}
+            \If{$distance[i] \neq +\infty$ \textbf{e} $distance[i] > excentricity$}
+                \State Defina $excentricity \gets distance[i]$
+            \EndIf
+        \EndFor
+        
+        \State \Return $excentricity$
+    \end{algorithmic}
+\end{algorithm}
+
+\subsection{Criação de Grafos Aleatórios}
+
+Para auxiliar na análise das classes criadas foram implementadas funções para gerar grafos direcionados e não-direcionados de tamanho aleatório. Dessa forma, essas funções permitem que novos grafos sejam criados para análise a cada execução do código.
+
+\newpage
+
+\subsubsection{Pseudocódigo para Criar Grafos Direcionados Aleatórios}
+
+\begin{algorithm}
+    \caption{Grafo Direcionado Aleatório}
+    \label{alg:createRandomDirectedGraph}
+    \begin{algorithmic}
+        \Require Um número aleatório de vértices $maxVertices$
+        \State Gera um número de vértices $numVertices$ aleatório entre $1$ e $maxVertices$
+        \State Cria um grafo direcionado com $numVertices$ vértices
+        \State Gera um número $numEdges$ entre $0$ e $numVertices \times (numVertices - 1)$
+        \For{$i = 0$ to $numEdges-1$}
+            \State Selecione um vértice $source$ aleatório entre $0$ e $numVertices-1$
+            \State Selecione um vértice $destination$ aleatório entre $0$ e $numVertices-1$
+            \If{$source \neq destination$}
+                \State Adicionar uma aresta do vértice $source$ para o vértice $destination$
+            \EndIf
+        \EndFor
+    \end{algorithmic}
+\end{algorithm}
+
+
+\subsubsection{Pseudocódigo para Criar Grafos Não-Direcionados Aleatórios}
+
+\begin{algorithm}
+    \caption{Grafo Não-Direcionado Aleatório}
+    \label{alg:createRandomUndirectedGraph}
+    \begin{algorithmic}
+        \Require Um número aleatório de vértices $maxVertices$
+        \State Gera um número de vértices $numVertices$ aleatório entre $1$ e $maxVertices$
+        \State Cria um grafo direcionado com $numVertices$ vértices
+        \State Gera um número $numEdges$ entre $0$ e $(numVertices \times (numVertices - 1)) \div 2$
+        \For{$i = 0$ to $numEdges-1$}
+            \State Selecione um vértice $source$ aleatório entre $0$ e $numVertices-1$
+            \State Selecione um vértice $destination$ aleatório entre $0$ e $numVertices-1$
+            \If{$source \neq destination$ e $\neg$ $(graph.hasEdge(source, destination))$}
+                \State Adicionar uma aresta do vértice $source$ para o vértice $destination$
+            \EndIf
+        \EndFor
+    \end{algorithmic}
+\end{algorithm}
+
+\section{Conclusão}
+
+Neste trabalho, foi explorado a manipulação de grafos direcionados e grafos-não direcionados e implementado os requisitos propostos, fornecendo uma estrutura eficiente para manipulação de grafos e permitindo análises variadas a cada execução por meio da criação de grafos aleatórios. Ademais, a modularidade das classes facilita tanto a manutenção quanto a expansão futura do código se exigido novos requisitos.
+
+
+
+%\bibliographystyle{sbc}
+%\bibliography{sbc-template}
+
+\end{document}
