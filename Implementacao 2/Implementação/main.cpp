@@ -70,6 +70,111 @@ public:
     }
 };
 
+void TestSimpleLinearSearch(int *megaArray, std::map<std::string, int> &operationsCountByAlgorithm);
+void TestBinarySearch(int *megaArray, std::map<std::string, int> &operationsCountByAlgorithm);
+void TestSentinelLinearSearch(int *megaArray, std::map<std::string, int> &operationsCountByAlgorithm);
+void ExportToCsv(const std::map<std::string, int>& operationsCountByAlgorithm);
+void PlotCharts();
+
+int main() {
+    std::map<std::string, int> operationsCountByAlgorithm;
+    int megaArray[1000000];
+    populateMegaArray(megaArray);
+
+    TestSimpleLinearSearch(megaArray, operationsCountByAlgorithm);
+    TestBinarySearch(megaArray, operationsCountByAlgorithm);
+    TestSentinelLinearSearch(megaArray, operationsCountByAlgorithm);
+
+    ExportToCsv(operationsCountByAlgorithm);
+    PlotCharts();
+
+    return 0;
+}
+
+void TestSimpleLinearSearch(int *megaArray, std::map<std::string, int> &operationsCountByAlgorithm) {
+    int operationsCount = 0;
+
+    // Element at the beginning
+    operationsCount = 0;
+    SearchAlgorithms::SimpleLinearSearch(megaArray, 1000000, megaArray[0], operationsCount);
+    operationsCountByAlgorithm["SimpleLinearSearch_Beginning"] = operationsCount;
+    std::cout << "SimpleLinearSearch (Element at Beginning) - Operations: " << operationsCount << std::endl;
+
+    // Element in the middle
+    operationsCount = 0;
+    SearchAlgorithms::SimpleLinearSearch(megaArray, 1000000, megaArray[500000], operationsCount);
+    operationsCountByAlgorithm["SimpleLinearSearch_Middle"] = operationsCount;
+    std::cout << "SimpleLinearSearch (Element in Middle) - Operations: " << operationsCount << std::endl;
+
+    // Element at the end
+    operationsCount = 0;
+    SearchAlgorithms::SimpleLinearSearch(megaArray, 1000000, megaArray[999999], operationsCount);
+    operationsCountByAlgorithm["SimpleLinearSearch_End"] = operationsCount;
+    std::cout << "SimpleLinearSearch (Element at End) - Operations: " << operationsCount << std::endl;
+
+    // Element not present
+    operationsCount = 0;
+    SearchAlgorithms::SimpleLinearSearch(megaArray, 1000000, 1000001, operationsCount);
+    operationsCountByAlgorithm["SimpleLinearSearch_NotFound"] = operationsCount;
+    std::cout << "SimpleLinearSearch (Element Not Present) - Operations: " << operationsCount << std::endl;
+}
+
+void TestBinarySearch(int *megaArray, std::map<std::string, int> &operationsCountByAlgorithm) {
+    int operationsCount = 0;
+
+    // Element at the beginning
+    operationsCount = 0;
+    SearchAlgorithms::BinarySearch(megaArray, 0, 1000000, megaArray[0], operationsCount);
+    operationsCountByAlgorithm["BinarySearch_Beginning"] = operationsCount;
+    std::cout << "BinarySearch (Element at Beginning) - Operations: " << operationsCount << std::endl;
+
+    // Element in the middle
+    operationsCount = 0;
+    SearchAlgorithms::BinarySearch(megaArray, 0, 1000000, megaArray[500000], operationsCount);
+    operationsCountByAlgorithm["BinarySearch_Middle"] = operationsCount;
+    std::cout << "BinarySearch (Element in Middle) - Operations: " << operationsCount << std::endl;
+
+    // Element at the end
+    operationsCount = 0;
+    SearchAlgorithms::BinarySearch(megaArray, 0, 1000000, megaArray[999999], operationsCount);
+    operationsCountByAlgorithm["BinarySearch_End"] = operationsCount;
+    std::cout << "BinarySearch (Element at End) - Operations: " << operationsCount << std::endl;
+
+    // Element not present
+    operationsCount = 0;
+    SearchAlgorithms::BinarySearch(megaArray, 0, 1000000, 1000001, operationsCount);
+    operationsCountByAlgorithm["BinarySearch_NotFound"] = operationsCount;
+    std::cout << "BinarySearch (Element Not Present) - Operations: " << operationsCount << std::endl;
+}
+
+void TestSentinelLinearSearch(int *megaArray, std::map<std::string, int> &operationsCountByAlgorithm) {
+    int operationsCount = 0;
+
+    // Test 1: Element at the beginning
+    operationsCount = 0;
+    SearchAlgorithms::SentinelLinearSearch(megaArray, 999999, megaArray[0], operationsCount);
+    operationsCountByAlgorithm["SentinelLinearSearch_Beginning"] = operationsCount;
+    std::cout << "SentinelLinearSearch (Element at Beginning) - Operations: " << operationsCount << std::endl;
+
+    // Element in the middle
+    operationsCount = 0;
+    SearchAlgorithms::SentinelLinearSearch(megaArray, 999999, megaArray[500000], operationsCount);
+    operationsCountByAlgorithm["SentinelLinearSearch_Middle"] = operationsCount;
+    std::cout << "SentinelLinearSearch (Element in Middle) - Operations: " << operationsCount << std::endl;
+
+    // Element at the end
+    operationsCount = 0;
+    SearchAlgorithms::SentinelLinearSearch(megaArray, 999999, megaArray[999999], operationsCount);
+    operationsCountByAlgorithm["SentinelLinearSearch_End"] = operationsCount;
+    std::cout << "SentinelLinearSearch (Element at End) - Operations: " << operationsCount << std::endl;
+
+    // Element not present
+    operationsCount = 0;
+    SearchAlgorithms::SentinelLinearSearch(megaArray, 999999, 1000001, operationsCount);
+    operationsCountByAlgorithm["SentinelLinearSearch_NotFound"] = operationsCount;
+    std::cout << "SentinelLinearSearch (Element Not Present) - Operations: " << operationsCount << std::endl;
+}
+
 void populateMegaArray(int *megaArray)
 {
     for (int i = 0; i < 1000000; i++)
@@ -77,41 +182,29 @@ void populateMegaArray(int *megaArray)
         megaArray[i] = i;
     }
 }
-void ExportToCsv(int operationsCount)
+void ExportToCsv(const std::map<std::string, int>& operationsCountByAlgorithm)
 {
     std::ofstream file("operations_count.csv");
+
+    if (!file.is_open()) {
+        std::cerr << "Failed to open the file for writing." << std::endl;
+        return;
+    }
+
+    // Write the CSV header
     file << "Algorithm,Operations\n";
-    file << "SimpleLinearSearch," << operationsCount << "\n";
-    file << "BinarySearch," << operationsCount << "\n";
-    file << "SentinelLinearSearch," << operationsCount << "\n";
+
+    // Iterate over the map and write each entry to the CSV
+    for (const auto& entry : operationsCountByAlgorithm) {
+        file << entry.first << "," << entry.second << "\n";
+    }
+
     file.close();
+    std::cout << "Data successfully exported to operations_count.csv" << std::endl;
 }
 
 void PlotCharts()
 {
     system("python3 plot_operations.py"); // On Linux or MacOS
     // system("python plot_operations.py");  // On Windows
-}
-
-int main()
-{
-    map<string, int> operationsCountByAlgorithm;
-    int megaArray[1000000];
-    populateMegaArray(megaArray);
-
-    int operationsCount = 0;
-    SearchAlgorithms::SimpleLinearSearch(megaArray, 1000000, 1000001, operationsCount);
-    operationsCountByAlgorithm["SimpleLinearSearch"] = operationsCount;
-    cout << "SimpleLinearSearch - Operations: " << operationsCountByAlgorithm["SimpleLinearSearch"] << endl;
-
-    operationsCount = 0;
-    SearchAlgorithms::BinarySearch(megaArray, 0, 1000000, 1000001, operationsCount);
-    operationsCountByAlgorithm["BinarySearch"] = operationsCount;
-    cout << "BinarySearch - Operations: " << operationsCountByAlgorithm["BinarySearch"] << endl;
-
-    operationsCount = 0;
-    SearchAlgorithms::SentinelLinearSearch(megaArray, 999999, 1000000, operationsCount);
-    operationsCountByAlgorithm["SentinelLinearSearch"] = operationsCount;
-    cout << "SentinelLinearSearch - Operations: " << operationsCount << endl;
-    return 0;
 }
