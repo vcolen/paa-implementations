@@ -1,0 +1,13 @@
+Algorithm,Operations
+BinarySearch_Beginning,169
+BinarySearch_End,169
+BinarySearch_Middle,7
+BinarySearch_NotFound,182
+SentinelLinearSearch_Beginning,7
+SentinelLinearSearch_End,1000007
+SentinelLinearSearch_Middle,1000007
+SentinelLinearSearch_NotFound,2000005
+SimpleLinearSearch_Beginning,4
+SimpleLinearSearch_End,2000002
+SimpleLinearSearch_Middle,1000004
+SimpleLinearSearch_NotFound,2000004
