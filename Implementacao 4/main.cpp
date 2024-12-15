@@ -7,8 +7,10 @@
 #include <limits>
 #include <cstring>
 #include <iomanip>
+#include <fstream>
 #include <chrono>  // Para medição de tempo, se necessário
 #include <random> // Para geração de grafos aleatórios
+#include <cstdlib>
 
 using namespace std;
 
@@ -282,10 +284,27 @@ private:
     }
 };
 
+// Função para escrever resultados no arquivo CSV
+void writeToCSV(const string &filename, const vector<vector<string>> &data) {
+    ofstream file(filename);
+    if (file.is_open()) {
+        for (const auto &row : data) {
+            for (size_t i = 0; i < row.size(); ++i) {
+                file << row[i];
+                if (i < row.size() - 1) file << ",";
+            }
+            file << "\n";
+        }
+        file.close();
+    } else {
+        cerr << "Erro ao abrir o arquivo " << filename << " para escrita." << endl;
+    }
+}
+
 // ===========================================================================
 // Teste do método de Felzenszwalb & Huttenlocher
 // ===========================================================================
-void testFelzenszwalbHuttenlocher(int numNodes, int numEdges, float k, int minSize) {
+void testFelzenszwalbHuttenlocher(int numNodes, int numEdges, float k, int minSize, vector<vector<string>> &results) {
     cout << "-> Testando Método Felzenszwalb & Huttenlocher" << endl;
 
     // Geração de grafo aleatório
@@ -309,15 +328,18 @@ void testFelzenszwalbHuttenlocher(int numNodes, int numEdges, float k, int minSi
     auto end_time = chrono::high_resolution_clock::now();
     double elapsed = chrono::duration<double, milli>(end_time - start_time).count();
 
-    // Saída do resultado
+    // Registro do resultado
+    int numComponents = *max_element(labels.begin(), labels.end()) + 1;
+    results.push_back({to_string(numNodes), to_string(numEdges), to_string(k), to_string(minSize), to_string(elapsed), to_string(numComponents)});
+
     cout << "Tempo de execução: " << fixed << setprecision(3) << elapsed << " ms" << endl;
-    cout << "Número de componentes: " << *max_element(labels.begin(), labels.end()) + 1 << endl;
+    cout << "Número de componentes: " << numComponents << endl;
 }
 
 // ===========================================================================
 // Teste do método de Boykov & Funka-Lea (Max-Flow/Min-Cut)
 // ===========================================================================
-void testBoykovFunkaLea(int numNodes, int numEdges) {
+void testBoykovFunkaLea(int numNodes, int numEdges, vector<vector<string>> &results) {
     cout << "-> Testando Método Boykov & Funka-Lea" << endl;
 
     // Geração de grafo aleatório
@@ -348,7 +370,9 @@ void testBoykovFunkaLea(int numNodes, int numEdges) {
     auto end_time = chrono::high_resolution_clock::now();
     double elapsed = chrono::duration<double, milli>(end_time - start_time).count();
 
-    // Saída do resultado
+    // Registro do resultado
+    results.push_back({to_string(numNodes), to_string(numEdges), to_string(elapsed), to_string(maxFlow)});
+
     cout << "Tempo de execução: " << fixed << setprecision(3) << elapsed << " ms" << endl;
     cout << "Fluxo máximo encontrado: " << maxFlow << endl;
 }
@@ -357,10 +381,13 @@ int main() {
     cout << "== Testes de Segmentação com Grafos de Diferentes Tamanhos ==" << endl << endl;
 
     // Configurações de teste
-    vector<int> nodeSizes = {10, 100, 1000, 10000, 100000, 1000000, 10000000}; // Quantidade de nós (pequenos a imensos)
-    vector<int> edgeDensities = {2, 4, 8, 16};              // Fator de densidade (arestas por nó)
-    float k = 1.5;                                          // Parâmetro de granularidade
-    int minSize = 3;                                        // Tamanho mínimo do componente
+    vector<int> nodeSizes = {10, 100, 1000, 10000, 100000, 1000000}; // Quantidade de nós (pequenos a imensos)
+    vector<int> edgeDensities = {2, 4, 8, 16};                      // Fator de densidade (arestas por nó)
+    float k = 1.5;                                                 // Parâmetro de granularidade
+    int minSize = 3;                                               // Tamanho mínimo do componente
+
+    vector<vector<string>> felzenszwalbResults = {{"NumNodes", "NumEdges", "K", "MinSize", "Time(ms)", "NumComponents"}};
+    vector<vector<string>> boykovResults = {{"NumNodes", "NumEdges", "Time(ms)", "MaxFlow"}};
 
     for (int nodes : nodeSizes) {
         for (int density : edgeDensities) {
@@ -374,15 +401,27 @@ int main() {
             }
 
             // Teste do Método Felzenszwalb & Huttenlocher
-            testFelzenszwalbHuttenlocher(nodes, edges, k, minSize);
+            testFelzenszwalbHuttenlocher(nodes, edges, k, minSize, felzenszwalbResults);
 
             // Teste do Método Boykov & Funka-Lea
-            testBoykovFunkaLea(nodes, edges);
+            testBoykovFunkaLea(nodes, edges, boykovResults);
 
             cout << endl; // Separador entre testes
         }
     }
 
+    // Escrita dos resultados nos arquivos CSV
+    writeToCSV("felzenszwalb_results.csv", felzenszwalbResults);
+    writeToCSV("boykov_results.csv", boykovResults);
+
     cout << "== Testes concluídos ==" << endl;
+
+    // Executa o script Python
+    cout << "Gerando gráficos comparativos..." << endl;
+    int ret = system("python3 plot_comparison.py");
+    if (ret != 0) {
+        cerr << "Erro ao executar o script Python." << endl;
+    }
+
     return 0;
 }
