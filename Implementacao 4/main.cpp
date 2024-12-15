@@ -14,54 +14,6 @@ using namespace std;
 
 const float INF = numeric_limits<float>::infinity();
 
-/*
-===========================================================================================
-Implementação e análise de dois métodos de segmentação de imagem baseados em particionamento de grafos:
-
-1) Segmentação baseada em grafos segundo Felzenszwalb & Huttenlocher (IJCV 2004):
-   "Efficient Graph-Based Image Segmentation"
-   - Princípio: Construir um MST (árvore geradora mínima) da imagem, onde vértices são pixels
-     e arestas representam diferenças de cor/estímulo entre pixels.
-   - Critério adaptativo de união de componentes baseado em limiares (k/|C| + Int(C)).
-   - Complexidade:
-     * Ordenação das arestas: O(E log E), onde E é o número de arestas.
-     * União e busca com Union-Find: Quase O(E) amortizado, pois Union-Find é muito eficiente.
-     * No geral, O(E log E) domina, dado que E ~ O(N) para grade de imagem, pois E ≈ 4N ou 8N
-       dependendo da conectividade (N = número de pixels).
-     * Estrutura de dados: Union-Find (Disjoint Set) para união dos componentes.
-     * Aplicação: Segmentação rápida e hierárquica, adequada para pré-processamento em visão computacional.
-
-2) Segmentação via min-cut s/t segundo Boykov & Funka-Lea (IJCV 2006):
-   "Graph Cuts and Efficient N-D Image Segmentation"
-   - Princípio: Modelar a segmentação como um problema de minimização de energia. Construir um
-     grafo com fonte (S) e sumidouro (T), onde cortes mínimos correspondem à solução ótima
-     do problema de segmentação.
-   - Computação do min-cut é obtida pelo max-flow (Dualidade max-flow/min-cut).
-   - Método de max-flow utilizado: Edmond-Karp (para fins didáticos). Existem métodos mais eficientes
-     (Dinic, Push-Relabel) que seriam melhores na prática.
-   - Complexidade do Edmond-Karp: O(V * E²) no pior caso. Para imagens, isso pode ser grande.
-     Métodos melhores, como Dinic, podem reduzir para O(E√V) em média.
-   - Estrutura de dados: Grafo residual com listas de adjacência, BFS e DFS para encontrar caminhos
-     aumentantes. 
-   - Aplicação: Fornece solução globalmente ótima para um modelo de energia, muito usado em segmentação.
-
-Comparação dos métodos:
-- Felzenszwalb & Huttenlocher:
-  * Mais rápido e simples de implementar.
-  * Segmentação baseada em propriedades de regiões (MST) e limiares adaptativos.
-  * Não garante necessariamente um ótimo global definido por uma função de energia, mas é muito eficiente.
-- Boykov & Funka-Lea (com max-flow/min-cut):
-  * Pode resolver problemas definidos como minimização de energia global.
-  * Garantia de ótima global em função da formulação do problema.
-  * Tempo de execução geralmente maior, pois max-flow/min-cut é mais pesado computacionalmente.
-  * Requer mais memória e estruturas mais complexas.
-
-Abaixo, o código editado inclui comentários mais detalhados, referências, análises de custo computacional
-e um esqueleto para medição de tempo que o usuário pode adaptar. Assim, este código
-está melhor preparado para avaliação acadêmica.
-===========================================================================================
-*/
-
 // ===========================================================================
 // Estrutura da aresta para o método Felzenszwalb & Huttenlocher
 // ===========================================================================
@@ -330,38 +282,6 @@ private:
     }
 };
 
-// Funções auxiliares para testes
-void testFelzenszwalbHuttenlocher(int numNodes, int numEdges, float k, int minSize);
-void testBoykovFunkaLea(int numNodes, int numEdges);
-
-int main() {
-    cout << "== Testes de Segmentação com Grafos de Diferentes Tamanhos ==" << endl << endl;
-
-    // Configurações de teste
-    vector<int> nodeSizes = {10, 100, 1000}; // Quantidade de nós
-    vector<int> edgeDensities = {2, 4, 8};   // Fator de densidade (arestas por nó)
-    float k = 1.5;                          // Parâmetro de granularidade
-    int minSize = 3;                        // Tamanho mínimo do componente
-
-    for (int nodes : nodeSizes) {
-        for (int density : edgeDensities) {
-            int edges = nodes * density; // Estimativa de número de arestas
-            cout << "== Testando com " << nodes << " nós e " << edges << " arestas ==" << endl;
-            
-            // Teste do Método Felzenszwalb & Huttenlocher
-            testFelzenszwalbHuttenlocher(nodes, edges, k, minSize);
-
-            // Teste do Método Boykov & Funka-Lea
-            testBoykovFunkaLea(nodes, edges);
-
-            cout << endl; // Separador entre testes
-        }
-    }
-
-    cout << "== Testes concluídos ==" << endl;
-    return 0;
-}
-
 // ===========================================================================
 // Teste do método de Felzenszwalb & Huttenlocher
 // ===========================================================================
@@ -431,4 +351,38 @@ void testBoykovFunkaLea(int numNodes, int numEdges) {
     // Saída do resultado
     cout << "Tempo de execução: " << fixed << setprecision(3) << elapsed << " ms" << endl;
     cout << "Fluxo máximo encontrado: " << maxFlow << endl;
+}
+
+int main() {
+    cout << "== Testes de Segmentação com Grafos de Diferentes Tamanhos ==" << endl << endl;
+
+    // Configurações de teste
+    vector<int> nodeSizes = {10, 100, 1000, 10000, 100000, 1000000, 10000000}; // Quantidade de nós (pequenos a imensos)
+    vector<int> edgeDensities = {2, 4, 8, 16};              // Fator de densidade (arestas por nó)
+    float k = 1.5;                                          // Parâmetro de granularidade
+    int minSize = 3;                                        // Tamanho mínimo do componente
+
+    for (int nodes : nodeSizes) {
+        for (int density : edgeDensities) {
+            long long edges = static_cast<long long>(nodes) * density; // Calcula o número de arestas
+            cout << "== Testando com " << nodes << " nós e " << edges << " arestas ==" << endl;
+
+            // Verifica a viabilidade do teste para grafos imensos
+            if (edges > 1e9) {
+                cout << "A quantidade de arestas excede o limite viável para teste (1 bilhão). Skipping..." << endl;
+                continue;
+            }
+
+            // Teste do Método Felzenszwalb & Huttenlocher
+            testFelzenszwalbHuttenlocher(nodes, edges, k, minSize);
+
+            // Teste do Método Boykov & Funka-Lea
+            testBoykovFunkaLea(nodes, edges);
+
+            cout << endl; // Separador entre testes
+        }
+    }
+
+    cout << "== Testes concluídos ==" << endl;
+    return 0;
 }
