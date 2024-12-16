@@ -9,8 +9,8 @@ ___
 
 ## Integrantes
 
-Camila Lopes: Responsável pela confecção do artigo e revisão do código.
-Victor Colen: Responsável pela confecção do código e revisão do artigo.
+- Camila Lopes: Responsável pela confecção do artigo e revisão do código.
+- Victor Colen: Responsável pela confecção do código e revisão do artigo.
 
 ---
 
