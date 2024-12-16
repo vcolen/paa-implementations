@@ -10,16 +10,25 @@ using namespace cv;
 using namespace std;
 using namespace chrono;
 
+// Estrutura de uma aresta no grafo, contendo o nó de destino (to), a capacidade (capacity) e a referência reversa (rev).
 struct Edge {
     int to;
     float capacity;
     int rev;
 };
 
+// Classe representando o grafo utilizado no algoritmo de fluxo máximo.
 class Graph {
 public:
+    // Construtor: inicializa o grafo com N nós.
     Graph(int n) : adj(n), N(n) {}
 
+    /**
+     * Adiciona uma aresta direcionada entre dois nós.
+     * @param u Nó de origem.
+     * @param v Nó de destino.
+     * @param capacity Capacidade da aresta.
+     */
     void addEdge(int u, int v, float capacity) {
         Edge a = {v, capacity, (int)adj[v].size()};
         Edge b = {u, 0.0f, (int)adj[u].size()};
@@ -28,6 +37,12 @@ public:
         edgeCount++;
     }
 
+    /**
+     * Calcula o fluxo máximo entre os nós fonte e sumidouro.
+     * @param s Nó fonte.
+     * @param t Nó sumidouro.
+     * @return Valor do fluxo máximo.
+     */
     float maxFlow(int s, int t) {
         source = s; sink = t;
         float flow = 0.f;
@@ -40,6 +55,10 @@ public:
         return flow;
     }
 
+    /**
+     * Obtém o corte mínimo no grafo.
+     * @return Vetor booleano indicando se cada nó pertence ao lado da fonte no corte mínimo.
+     */
     vector<bool> getMinCut() {
         vector<bool> cut(N, false);
         for (int i = 0; i < N; i++) {
@@ -48,14 +67,16 @@ public:
         return cut;
     }
 
+    // Retorna o número total de arestas no grafo.
     int getEdgeCount() const { return edgeCount; }
 
 private:
-    vector<vector<Edge>> adj;
-    vector<int> level, start;
-    int N, source, sink;
-    int edgeCount = 0;
+    vector<vector<Edge>> adj; // Lista de adjacências para representar o grafo.
+    vector<int> level, start; // Vetores auxiliares para o algoritmo de fluxo.
+    int N, source, sink;      // Número de nós, nó fonte e nó sumidouro.
+    int edgeCount = 0;        // Contador de arestas.
 
+    // Realiza uma busca em largura (BFS) para determinar os níveis dos nós.
     bool bfs() {
         level.assign(N, -1);
         level[source] = 0;
@@ -73,6 +94,7 @@ private:
         return level[sink] >= 0;
     }
 
+    // Envia fluxo pela rede, respeitando a capacidade residual das arestas.
     float sendFlow(int u, float flow) {
         if (u == sink) return flow;
         for (; start[u] < (int)adj[u].size(); start[u]++) {
@@ -91,11 +113,22 @@ private:
     }
 };
 
+// Função para calcular o log seguro, evitando valores indefinidos.
 inline float safeLog(float x) {
     if (x < 1e-10f) x = 1e-10f;
     return -log(x);
 }
 
+/**
+ * Constrói os histogramas de intensidade para as regiões de objeto e fundo.
+ * @param gray Imagem em escala de cinza.
+ * @param maskObj Máscara indicando a região do objeto.
+ * @param maskBkg Máscara indicando a região de fundo.
+ * @param objHist Histograma da região do objeto.
+ * @param bkgHist Histograma da região de fundo.
+ * @param objCount Contador de pixels na região do objeto.
+ * @param bkgCount Contador de pixels na região de fundo.
+ */
 void buildHistograms(const Mat &gray, const Mat &maskObj, const Mat &maskBkg,
                      vector<int> &objHist, vector<int> &bkgHist,
                      int &objCount, int &bkgCount) {
@@ -117,6 +150,11 @@ void buildHistograms(const Mat &gray, const Mat &maskObj, const Mat &maskBkg,
     }
 }
 
+/**
+ * Segmenta uma imagem usando uma abordagem baseada em corte mínimo.
+ * @param image Imagem de entrada em formato RGB.
+ * @return Imagem segmentada com regiões coloridas.
+ */
 Mat segmentImageThresholdBased(const Mat &image) {
     Mat gray;
     cvtColor(image, gray, COLOR_BGR2GRAY);
@@ -222,10 +260,13 @@ int main() {
             continue;
         }
 
+        // Processa a imagem e realiza a segmentação.
         Mat segmented = segmentImageThresholdBased(image);
+
+        // Exibe os resultados.
         imshow("Original - " + imagePath, image);
         imshow("Segmented - " + imagePath, segmented);
-        waitKey(0); // Aguarda o usuário pressionar uma tecla antes de continuar
+        waitKey(0); // Aguarda o usuário pressionar uma tecla antes de continuar.
     }
 
     return 0;
