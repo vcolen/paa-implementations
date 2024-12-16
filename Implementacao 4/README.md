@@ -5,7 +5,12 @@ Este projeto implementa dois métodos de segmentação de imagens baseados em gr
 1. **Algoritmo de Felzenszwalb-Huttenlocher (FH)**.
 2. **Algoritmo de Corte Mínimo (Boykov-Funka-Lea)**.
 
-Os métodos são usados para particionar imagens com base em suas propriedades visuais, como cor e intensidade.
+___
+
+## Integrantes
+
+Camila Lopes: Responsável pela confecção do artigo e revisão do código.
+Victor Colen: Responsável pela confecção do código e revisão do artigo.
 
 ---
 
@@ -76,47 +81,33 @@ Certifique-se de que os arquivos do projeto estão no mesmo diretório. Para com
 1. Navegue até o diretório do projeto no Terminal:
 
 ```bash
-cd /caminho/para/o/diretorio/do/projeto
+cd /paa-implementations/Implementacao\ 4/
 ```
 
-2. Compile o arquivo usando o comando:
+2. Compile os arquivo usando o comando:
 
 ```bash
-g++ -std=c++17 -o segmentacao main.cpp `pkg-config --cflags --libs opencv4`
+g++ -std=c++11 -I/opt/homebrew/include/opencv4 -L/opt/homebrew/lib FH.cpp -lopencv_core -lopencv_imgcodecs -lopencv_highgui -lopencv_imgproc -o FH`
+g++ -std=c++11 -I/opt/homebrew/include/opencv4 -L/opt/homebrew/lib BF.cpp -lopencv_core -lopencv_imgcodecs -lopencv_highgui -lopencv_imgproc -o BF`
 ```
 
-3. O comando acima gera um executável chamado `segmentacao`.
+3. O comando acima gera dois executáveis chamados `FH` e `BF`.
 
 ---
 
 ## Executando o Projeto
 
-1. Coloque as imagens de entrada no mesmo diretório do executável e garanta que os nomes das imagens correspondam aos definidos no código.
-
-2. Execute o programa:
+1. Execute o programa:
 
 ```bash
-./segmentacao
+./FH
+```
+ou
+```bash
+./BF
 ```
 
 3. O programa exibirá as imagens originais e segmentadas. Pressione qualquer tecla para avançar para a próxima imagem ou encerrar.
-
----
-
-## Estrutura do Projeto
-
-- **main.cpp**: Arquivo principal contendo a implementação dos algoritmos.
-- **Imagens de entrada**: Arquivos `.jpeg` ou `.jpg` que serão segmentados.
-
----
-
-## Problemas Comuns
-
-### 1. OpenCV não encontrado
-Certifique-se de que o caminho do OpenCV foi configurado corretamente no `PKG_CONFIG_PATH`.
-
-### 2. Erro ao carregar imagens
-Garanta que os arquivos de imagem estejam no diretório correto e que os nomes correspondam ao especificado no código.
 
 ---
 
