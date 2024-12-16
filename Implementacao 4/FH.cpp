@@ -138,9 +138,6 @@ Mat colorSegments(const Mat& image, const vector<int>& labels) {
     return segmented;
 }
 
-/**
- * Função principal: executa a segmentação em imagens de entrada.
- */
 int main() {
     try {
         vector<string> imagePaths = { "sen.jpeg", "fror.jpg" }; // Caminhos das imagens de entrada.

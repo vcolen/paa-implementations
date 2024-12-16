@@ -20,7 +20,6 @@ struct Edge {
 // Classe representando o grafo utilizado no algoritmo de fluxo máximo.
 class Graph {
 public:
-    // Construtor: inicializa o grafo com N nós.
     Graph(int n) : adj(n), N(n) {}
 
     /**
@@ -251,7 +250,7 @@ Mat segmentImageThresholdBased(const Mat &image) {
 }
 
 int main() {
-    vector<string> imagePaths = {"sen.jpeg", "fror.jpg"}; // Adicione os caminhos das imagens aqui
+    vector<string> imagePaths = {"sen.jpeg", "fror.jpg"};
 
     for (const auto& imagePath : imagePaths) {
         Mat image = imread(imagePath, IMREAD_COLOR);
@@ -266,7 +265,7 @@ int main() {
         // Exibe os resultados.
         imshow("Original - " + imagePath, image);
         imshow("Segmented - " + imagePath, segmented);
-        waitKey(0); // Aguarda o usuário pressionar uma tecla antes de continuar.
+        waitKey(0); 
     }
 
     return 0;
