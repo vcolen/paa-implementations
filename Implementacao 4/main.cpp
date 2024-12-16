@@ -1,427 +1,126 @@
+#include <opencv2/opencv.hpp>
 #include <iostream>
 #include <vector>
-#include <algorithm>
 #include <cmath>
 #include <unordered_map>
-#include <queue>
-#include <limits>
-#include <cstring>
-#include <iomanip>
-#include <fstream>
-#include <chrono>  // Para medição de tempo, se necessário
-#include <random> // Para geração de grafos aleatórios
-#include <cstdlib>
+#include <random>
+#include <chrono>
 
+using namespace cv;
 using namespace std;
+using namespace chrono;
 
-const float INF = numeric_limits<float>::infinity();
+float computeWeight(const Vec3b& c1, const Vec3b& c2) {
+    float diffB = (float)c1[0] - (float)c2[0];
+    float diffG = (float)c1[1] - (float)c2[1];
+    float diffR = (float)c1[2] - (float)c2[2];
+    return sqrt(diffB * diffB + diffG * diffG + diffR * diffR);
+}
 
-// ===========================================================================
-// Estrutura da aresta para o método Felzenszwalb & Huttenlocher
-// ===========================================================================
-// Cada aresta conecta dois nós (u, v) e possui um peso associado, que representa
-// a dissimilaridade entre os dois nós. No contexto de segmentação de imagens,
-// esse peso pode ser a diferença de intensidade, cor ou outra métrica relevante.
-struct Edge {
-    int u, v;     // Índices dos nós/vértices conectados pela aresta
-    float weight; // Peso da aresta (medida de dissimilaridade)
-};
+struct DisjointSets {
+    vector<int> parent, rank, size;
 
-// ===========================================================================
-// Classe Union-Find (Disjoint Set) utilizada no método Felzenszwalb & Huttenlocher
-// ===========================================================================
-// Esta classe implementa uma estrutura de conjuntos disjuntos para representar
-// componentes conectados no grafo. Ela suporta as operações de "find" (localizar
-// o componente de um nó) e "unify" (unir dois componentes).
-class DisjointSet {
-public:
-    // Construtor: inicializa a estrutura para um número específico de nós
-    DisjointSet(int size) : parent(size), rank(size, 0), componentSize(size, 1), intDiff(size, 0.0f) {
-        for (int i = 0; i < size; ++i)
-            parent[i] = i; // Cada nó começa em seu próprio conjunto
+    DisjointSets(int n) : parent(n), rank(n, 0), size(n, 1) {
+        for (int i = 0; i < n; ++i) parent[i] = i;
     }
 
-    // Localiza o representante do conjunto (com compressão de caminho para eficiência)
     int findSet(int u) {
-        if (u != parent[u])
-            parent[u] = findSet(parent[u]);
+        if (parent[u] != u) parent[u] = findSet(parent[u]);
         return parent[u];
     }
 
-    // Une dois conjuntos com base nos pesos das arestas e nas diferenças internas
-    void unify(int u, int v, float weight) {
-        u = findSet(u); // Representante do conjunto de u
-        v = findSet(v); // Representante do conjunto de v
-
-        if (u != v) { // Se os dois conjuntos são distintos, unificá-los
-            if (rank[u] > rank[v]) {
-                parent[v] = u;
-                componentSize[u] += componentSize[v];
-                intDiff[u] = max(intDiff[u], max(intDiff[v], weight)); // Atualiza a maior diferença interna
-            } else if (rank[u] < rank[v]) {
-                parent[u] = v;
-                componentSize[v] += componentSize[u];
-                intDiff[v] = max(intDiff[v], max(intDiff[u], weight)); // Atualiza a maior diferença interna
-            } else {
-                parent[v] = u;
-                componentSize[u] += componentSize[v];
-                rank[u]++;
-                intDiff[u] = max(intDiff[u], max(intDiff[v], weight)); // Atualiza a maior diferença interna
-            }
-        }
-    }
-
-    // Retorna o tamanho do componente de um nó
-    int size(int u) {
-        return componentSize[findSet(u)];
-    }
-
-    // Retorna a maior diferença interna do componente de um nó
-    float internalDiff(int u) {
-        return intDiff[findSet(u)];
-    }
-
-private:
-    vector<int> parent;          // Vetor de pais para a estrutura Union-Find
-    vector<int> rank;            // Classificação para melhorar a eficiência da união
-    vector<int> componentSize;   // Tamanho de cada componente
-    vector<float> intDiff;       // Maior aresta interna do componente (Int(C))
-};
-
-// ===========================================================================
-// Segmentação baseada em grafos (Felzenszwalb & Huttenlocher, 2004)
-// ===========================================================================
-// Este método realiza particionamento de um grafo em componentes conexos
-// adaptativos, usando critérios que levam em conta a diferença interna
-// máxima de cada componente (Int(C)) e um limiar adaptativo (Tau(C)).
-// Parâmetros:
-// - numNodes: Número de nós no grafo
-// - edges: Vetor de arestas que conectam os nós
-// - k: Parâmetro que controla a granularidade da segmentação
-// - minSize: Tamanho mínimo para cada componente após a segmentação
-vector<int> segmentImageGraph(int numNodes, vector<Edge>& edges, float k, int minSize) {
-    // Passo 1: Ordena as arestas por peso (crescente)
-    // Isso garante que as menores arestas sejam processadas primeiro, como em uma
-    // construção de árvore geradora mínima.
-    sort(edges.begin(), edges.end(), [](const Edge& a, const Edge& b) {
-        return a.weight < b.weight;
-    });
-
-    // Inicializa a estrutura Union-Find para representar os componentes
-    DisjointSet ds(numNodes);
-
-    // Passo 2: União adaptativa dos componentes com base no critério Tau(C)
-    for (auto &edge : edges) {
-        int c1 = ds.findSet(edge.u); // Componente do nó u
-        int c2 = ds.findSet(edge.v); // Componente do nó v
-
-        if (c1 != c2) { // Apenas tenta unir componentes diferentes
-            float intC1 = ds.internalDiff(c1); // Diferença interna de C1
-            float intC2 = ds.internalDiff(c2); // Diferença interna de C2
-            float tauC1 = k / ds.size(c1);     // Limiar adaptativo para C1
-            float tauC2 = k / ds.size(c2);     // Limiar adaptativo para C2
-
-            // Decide se deve unir os componentes com base no peso da aresta
-            float maxInt = min(intC1 + tauC1, intC2 + tauC2);
-            if (edge.weight <= maxInt) {
-                ds.unify(c1, c2, edge.weight);
-            }
-        }
-    }
-
-    // Passo 3: Pós-processamento para garantir tamanho mínimo dos componentes
-    for (auto &edge : edges) {
-        int c1 = ds.findSet(edge.u);
-        int c2 = ds.findSet(edge.v);
-        if (c1 != c2) {
-            if (ds.size(c1) < minSize || ds.size(c2) < minSize) {
-                ds.unify(c1, c2, edge.weight); // Une componentes pequenos
-            }
-        }
-    }
-
-    // Passo 4: Geração de rótulos finais para cada nó
-    vector<int> labels(numNodes); // Cada nó terá um rótulo indicando seu componente
-    unordered_map<int, int> compToLabel; // Mapeia componentes para rótulos
-    int labelCount = 0; // Contador de rótulos únicos
-    for (int i = 0; i < numNodes; ++i) {
-        int root = ds.findSet(i); // Representante do componente de i
-        if (compToLabel.find(root) == compToLabel.end()) {
-            compToLabel[root] = labelCount++;
-        }
-        labels[i] = compToLabel[root];
-    }
-
-    return labels; // Retorna o vetor de rótulos
-}
-
-// ===========================================================================
-// Estruturas para o método de Boykov & Funka-Lea (Min-Cut/Max-Flow)
-// ===========================================================================
-// Representa uma aresta residual no grafo. Necessária para calcular fluxos
-// e ajustar as capacidades residuais após cada iteração.
-struct ResidualEdge {
-    int to;          // Nó destino
-    float capacity;  // Capacidade máxima da aresta
-    float flow;      // Fluxo atual na aresta
-    int reverse;     // Índice da aresta reversa na lista de adjacências do nó 'to'
-};
-
-// ===========================================================================
-// Classe Graph: Representa um grafo com arestas residuais
-// ===========================================================================
-class Graph {
-public:
-    explicit Graph(int nodes) : adj(nodes) {}
-
-    // Adiciona uma aresta direcionada no grafo e sua reversa no grafo residual
-    void addEdge(int from, int to, float capacity) {
-        ResidualEdge a = {to, capacity, 0, (int)adj[to].size()};
-        ResidualEdge b = {from, 0, 0, (int)adj[from].size()};
-        adj[from].push_back(a);
-        adj[to].push_back(b);
-    }
-
-    // Retorna a lista de adjacências do grafo
-    vector<vector<ResidualEdge>>& getAdj() {
-        return adj;
-    }
-
-private:
-    vector<vector<ResidualEdge>> adj; // Lista de adjacências de arestas residuais
-};
-
-// ===========================================================================
-// Classe MaxFlow: Calcula fluxo máximo e corte mínimo
-// ===========================================================================
-class MaxFlow {
-public:
-    explicit MaxFlow(Graph& graph) : graph(graph) {}
-
-    // Encontra o fluxo máximo entre fonte e sumidouro
-    float findMaxFlow(int source, int sink) {
-        int nodes = (int)graph.getAdj().size();
-        float maxFlow = 0;
-
-        // Repetidamente encontra caminhos aumentantes e ajusta os fluxos
-        while (bfs(source, sink)) {
-            vector<int> start(nodes, 0);
-            while (float flow = dfs(source, sink, INF, start)) {
-                maxFlow += flow;
-            }
-        }
-        return maxFlow;
-    }
-
-    // Obtém o corte mínimo a partir do grafo residual
-    vector<bool> getMinCut(int source) {
-        int nodes = (int)graph.getAdj().size();
-        vector<bool> visited(nodes, false);
-        queue<int> q;
-        q.push(source);
-        visited[source] = true;
-
-        // BFS para identificar os nós alcançáveis a partir da fonte
-        while (!q.empty()) {
-            int node = q.front();
-            q.pop();
-
-            for (const auto& edge : graph.getAdj()[node]) {
-                if (!visited[edge.to] && edge.capacity - edge.flow > 0) {
-                    visited[edge.to] = true;
-                    q.push(edge.to);
-                }
-            }
-        }
-        return visited;
-    }
-
-private:
-    Graph& graph;            // Referência ao grafo residual
-    vector<int> level;       // Níveis dos nós para BFS
-
-    // BFS: Encontra caminhos aumentantes no grafo residual
-    bool bfs(int source, int sink) {
-        int nodes = (int)graph.getAdj().size();
-        level.assign(nodes, -1);
-
-        queue<int> q;
-        q.push(source);
-        level[source] = 0;
-
-        while (!q.empty()) {
-            int node = q.front();
-            q.pop();
-
-            for (const auto& edge : graph.getAdj()[node]) {
-                if (level[edge.to] == -1 && edge.capacity - edge.flow > 0) {
-                    level[edge.to] = level[node] + 1;
-                    q.push(edge.to);
-                }
-            }
-        }
-        return level[sink] != -1;
-    }
-
-    // DFS: Propaga o fluxo ao longo do caminho encontrado pela BFS
-    float dfs(int node, int sink, float flow, vector<int>& start) {
-        if (node == sink) return flow;
-
-        for (; start[node] < (int)graph.getAdj()[node].size(); ++start[node]) {
-            ResidualEdge& edge = graph.getAdj()[node][start[node]];
-            if (level[edge.to] == level[node] + 1 && edge.capacity - edge.flow > 0) {
-                float currFlow = min(flow, edge.capacity - edge.flow);
-                float tempFlow = dfs(edge.to, sink, currFlow, start);
-
-                if (tempFlow > 0) {
-                    edge.flow += tempFlow;
-                    graph.getAdj()[edge.to][edge.reverse].flow -= tempFlow;
-                    return tempFlow;
-                }
-            }
-        }
-        return 0;
-    }
-};
-
-// Função para escrever resultados no arquivo CSV
-void writeToCSV(const string &filename, const vector<vector<string>> &data) {
-    ofstream file(filename);
-    if (file.is_open()) {
-        for (const auto &row : data) {
-            for (size_t i = 0; i < row.size(); ++i) {
-                file << row[i];
-                if (i < row.size() - 1) file << ",";
-            }
-            file << "\n";
-        }
-        file.close();
-    } else {
-        cerr << "Erro ao abrir o arquivo " << filename << " para escrita." << endl;
-    }
-}
-
-// ===========================================================================
-// Teste do método de Felzenszwalb & Huttenlocher
-// ===========================================================================
-void testFelzenszwalbHuttenlocher(int numNodes, int numEdges, float k, int minSize, vector<vector<string>> &results) {
-    cout << "-> Testando Método Felzenszwalb & Huttenlocher" << endl;
-
-    // Geração de grafo aleatório
-    vector<Edge> edges;
-    random_device rd;
-    mt19937 gen(rd());
-    uniform_int_distribution<int> distNode(0, numNodes - 1);
-    uniform_real_distribution<float> distWeight(0.0, 10.0);
-
-    for (int i = 0; i < numEdges; ++i) {
-        int u = distNode(gen);
-        int v = distNode(gen);
+    void unite(int u, int v) {
+        u = findSet(u), v = findSet(v);
         if (u != v) {
-            edges.push_back({u, v, distWeight(gen)});
+            if (rank[u] > rank[v]) parent[v] = u, size[u] += size[v];
+            else parent[u] = v, size[v] += size[u], rank[u] == rank[v] ? rank[v]++ : 0;
+        }
+    }
+    int getSize(int u) { return size[findSet(u)]; }
+};
+
+vector<int> segmentImageFH(const Mat& image, float k, int& edgeCount) {
+    int V = image.rows * image.cols;
+    vector<int> labels(V);
+    for (int i = 0; i < V; ++i) labels[i] = i;
+
+    DisjointSets ds(V);
+    vector<pair<float, pair<int, int>>> edges;
+
+    // Build graph
+    for (int i = 0; i < image.rows; ++i) {
+        for (int j = 0; j < image.cols; ++j) {
+            Vec3b c1 = image.at<Vec3b>(i, j);
+            if (i + 1 < image.rows) edges.push_back({computeWeight(c1, image.at<Vec3b>(i + 1, j)), {i * image.cols + j, (i + 1) * image.cols + j}});
+            if (j + 1 < image.cols) edges.push_back({computeWeight(c1, image.at<Vec3b>(i, j + 1)), {i * image.cols + j, i * image.cols + (j + 1)}});
         }
     }
 
-    // Medição de tempo
-    auto start_time = chrono::high_resolution_clock::now();
-    vector<int> labels = segmentImageGraph(numNodes, edges, k, minSize);
-    auto end_time = chrono::high_resolution_clock::now();
-    double elapsed = chrono::duration<double, milli>(end_time - start_time).count();
+    edgeCount = edges.size();
+    sort(edges.begin(), edges.end());
 
-    // Registro do resultado
-    int numComponents = *max_element(labels.begin(), labels.end()) + 1;
-    results.push_back({to_string(numNodes), to_string(numEdges), to_string(k), to_string(minSize), to_string(elapsed), to_string(numComponents)});
+    vector<float> threshold(V, k);
+    for (auto& edge : edges) {
+        float w = edge.first;
+        int u = edge.second.first, v = edge.second.second;
+        int cu = ds.findSet(u), cv = ds.findSet(v);
+        if (cu != cv && w <= threshold[cu] && w <= threshold[cv]) {
+            ds.unite(cu, cv);
+            threshold[ds.findSet(cu)] = w + k / ds.getSize(ds.findSet(cu));
+        }
+    }
 
-    cout << "Tempo de execução: " << fixed << setprecision(3) << elapsed << " ms" << endl;
-    cout << "Número de componentes: " << numComponents << endl;
+    for (int i = 0; i < V; ++i) labels[i] = ds.findSet(i);
+    return labels;
 }
 
-// ===========================================================================
-// Teste do método de Boykov & Funka-Lea (Max-Flow/Min-Cut)
-// ===========================================================================
-void testBoykovFunkaLea(int numNodes, int numEdges, vector<vector<string>> &results) {
-    cout << "-> Testando Método Boykov & Funka-Lea" << endl;
+Mat colorSegments(const Mat& image, const vector<int>& labels) {
+    int rows = image.rows, cols = image.cols;
+    Mat segmented(rows, cols, CV_8UC3);
+    unordered_map<int, Vec3b> colors;
 
-    // Geração de grafo aleatório
-    Graph graph(numNodes);
-    random_device rd;
-    mt19937 gen(rd());
-    uniform_int_distribution<int> distNode(0, numNodes - 1);
-    uniform_real_distribution<float> distCapacity(1.0, 20.0);
+    mt19937 rng((unsigned)random_device{}());
+    uniform_int_distribution<int> distColor(0, 255);
 
-    for (int i = 0; i < numEdges; ++i) {
-        int u = distNode(gen);
-        int v = distNode(gen);
-        if (u != v) {
-            graph.addEdge(u, v, distCapacity(gen));
+    for (int i = 0; i < rows; ++i) {
+        for (int j = 0; j < cols; ++j) {
+            int label = labels[i * cols + j];
+            if (colors.find(label) == colors.end()) colors[label] = Vec3b(distColor(rng), distColor(rng), distColor(rng));
+            segmented.at<Vec3b>(i, j) = colors[label];
         }
     }
-
-    // Escolha da fonte e do sumidouro
-    int source = 0;
-    int sink = numNodes - 1;
-
-    // Solução do fluxo máximo
-    MaxFlow maxFlowSolver(graph);
-
-    // Medição de tempo
-    auto start_time = chrono::high_resolution_clock::now();
-    float maxFlow = maxFlowSolver.findMaxFlow(source, sink);
-    auto end_time = chrono::high_resolution_clock::now();
-    double elapsed = chrono::duration<double, milli>(end_time - start_time).count();
-
-    // Registro do resultado
-    results.push_back({to_string(numNodes), to_string(numEdges), to_string(elapsed), to_string(maxFlow)});
-
-    cout << "Tempo de execução: " << fixed << setprecision(3) << elapsed << " ms" << endl;
-    cout << "Fluxo máximo encontrado: " << maxFlow << endl;
+    return segmented;
 }
 
 int main() {
-    cout << "== Testes de Segmentação com Grafos de Diferentes Tamanhos ==" << endl << endl;
+    try {
+        vector<string> imagePaths = { "sen.jpeg", "fror.jpg" };
+        float k = 300.0f;
 
-    // Configurações de teste
-    vector<int> nodeSizes = {10, 100, 1000, 10000, 100000, 1000000}; // Quantidade de nós (pequenos a imensos)
-    vector<int> edgeDensities = {2, 4, 8, 16};                      // Fator de densidade (arestas por nó)
-    float k = 1.5;                                                 // Parâmetro de granularidade
-    int minSize = 3;                                               // Tamanho mínimo do componente
+        for (auto& path : imagePaths) {
+            cout << "Processing image: " << path << endl;
+            Mat image = imread(path, IMREAD_COLOR);
+            if (image.empty()) { cerr << "Error loading image " << path << endl; continue; }
 
-    vector<vector<string>> felzenszwalbResults = {{"NumNodes", "NumEdges", "K", "MinSize", "Time(ms)", "NumComponents"}};
-    vector<vector<string>> boykovResults = {{"NumNodes", "NumEdges", "Time(ms)", "MaxFlow"}};
+            // Preprocess (GaussianBlur to reduce noise)
+            GaussianBlur(image, image, Size(5, 5), 1.5);
 
-    for (int nodes : nodeSizes) {
-        for (int density : edgeDensities) {
-            long long edges = static_cast<long long>(nodes) * density; // Calcula o número de arestas
-            cout << "== Testando com " << nodes << " nós e " << edges << " arestas ==" << endl;
+            int edgeCount = 0;
+            auto start = high_resolution_clock::now();
+            vector<int> labels = segmentImageFH(image, k, edgeCount);
+            auto end = high_resolution_clock::now();
 
-            // Verifica a viabilidade do teste para grafos imensos
-            if (edges > 1e9) {
-                cout << "A quantidade de arestas excede o limite viável para teste (1 bilhão). Skipping..." << endl;
-                continue;
-            }
+            cout << "Time: " << duration_cast<milliseconds>(end - start).count() << " ms" << endl;
 
-            // Teste do Método Felzenszwalb & Huttenlocher
-            testFelzenszwalbHuttenlocher(nodes, edges, k, minSize, felzenszwalbResults);
-
-            // Teste do Método Boykov & Funka-Lea
-            testBoykovFunkaLea(nodes, edges, boykovResults);
-
-            cout << endl; // Separador entre testes
+            Mat segmentedImage = colorSegments(image, labels);
+            imshow("Original Image", image);
+            imshow("Segmented Image", segmentedImage);
+            waitKey(0);
+            destroyAllWindows();
         }
+        return 0;
+    } catch (const exception& e) {
+        cerr << "Error: " << e.what() << endl;
+        return -1;
     }
-
-    // Escrita dos resultados nos arquivos CSV
-    writeToCSV("felzenszwalb_results.csv", felzenszwalbResults);
-    writeToCSV("boykov_results.csv", boykovResults);
-
-    cout << "== Testes concluídos ==" << endl;
-
-    // Executa o script Python
-    cout << "Gerando gráficos comparativos..." << endl;
-    int ret = system("python3 plot_comparison.py");
-    if (ret != 0) {
-        cerr << "Erro ao executar o script Python." << endl;
-    }
-
-    return 0;
 }
